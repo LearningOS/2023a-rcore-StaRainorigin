@@ -21,13 +21,22 @@ const SYSCALL_GET_TIME: usize = 169;
 /// taskinfo syscall
 const SYSCALL_TASK_INFO: usize = 410;
 
+///
+/// 从这里看一共有哪些系统调用，一目了然
+/// 
+
+
+
 mod fs;
 mod process;
 
 use fs::*;
 use process::*;
+use crate::task::{TaskInfo, add_syscall_count};
+
 /// handle syscall exception with `syscall_id` and other arguments
 pub fn syscall(syscall_id: usize, args: [usize; 3]) -> isize {
+    add_syscall_count(syscall_id); //放在这里也省事了 yeeeeeeeeeeeeeeeeeeeeeee
     match syscall_id {
         SYSCALL_WRITE => sys_write(args[0], args[1] as *const u8, args[2]),
         SYSCALL_EXIT => sys_exit(args[0] as i32),
