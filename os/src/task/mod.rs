@@ -14,15 +14,23 @@ mod switch;
 #[allow(clippy::module_inception)]
 mod task;
 
+
+
+use crate::config::PAGE_SIZE;
+// use crate::config::MAX_SYSCALL_NUM;// 应该是用不到了，因为之前是在 TASK_MANAGER 中的 TaskControlBlock 创建的时候用到的，现在 TaskControlBlock 的初始化被移走了，那么他也用不到了
 use crate::loader::{get_app_data, get_num_app};
+use crate::mm::{VirtAddr, MapPermission};
+// use crate::mm::MapPermission;
 use crate::sync::UPSafeCell;
+use crate::timer::get_time_ms;
+// use crate::timer::get_time_ms;//
 use crate::trap::TrapContext;
 use alloc::vec::Vec;
 use lazy_static::*;
 use switch::__switch;
-pub use task::{TaskControlBlock, TaskStatus};
-
+pub use task::{TaskControlBlock, TaskStatus, TaskInfo};
 pub use context::TaskContext;
+
 
 /// The task manager, where all the tasks are managed.
 ///
@@ -50,13 +58,14 @@ struct TaskManagerInner {
 
 lazy_static! {
     /// a `TaskManager` global instance through lazy_static!
+    /// ch4: 这地方变了 
     pub static ref TASK_MANAGER: TaskManager = {
         println!("init TASK_MANAGER");
         let num_app = get_num_app();
         println!("num_app = {}", num_app);
         let mut tasks: Vec<TaskControlBlock> = Vec::new();
         for i in 0..num_app {
-            tasks.push(TaskControlBlock::new(get_app_data(i), i));
+            tasks.push(TaskControlBlock::new(get_app_data(i), i));  // -> task.rs
         }
         TaskManager {
             num_app,
@@ -75,12 +84,18 @@ impl TaskManager {
     ///
     /// Generally, the first task in task list is an idle task (we call it zero process later).
     /// But in ch4, we load apps statically, so the first task is a real app.
+    /// 
+    /// 运行任务列表中的第一个任务。
+    ///
+    /// 通常，任务列表中的第一个任务是一个空闲任务（我们稍后称之为零进程）。
+    /// 但在 ch4 中，我们静态加载应用程序，因此第一个任务是一个真正的应用程序。
+    /// 
     fn run_first_task(&self) -> ! {
         let mut inner = self.inner.exclusive_access();
         let next_task = &mut inner.tasks[0];
         next_task.task_status = TaskStatus::Running;
         let next_task_cx_ptr = &next_task.task_cx as *const TaskContext;
-        drop(inner);
+        drop(inner); //注意drop
         let mut _unused = TaskContext::zero_init();
         // before this, we should drop local variables that must be dropped manually
         unsafe {
@@ -202,3 +217,117 @@ pub fn current_trap_cx() -> &'static mut TrapContext {
 pub fn change_program_brk(size: i32) -> Option<usize> {
     TASK_MANAGER.change_current_program_brk(size)
 }
+
+/// 添加计数
+pub fn add_syscall_count(syscall_id: usize) {
+    let mut inner = TASK_MANAGER.inner.exclusive_access();
+    let current = inner.current_task;
+    inner.tasks[current].syscall_counts[syscall_id] += 1;
+}
+
+
+/// 获取当前任务信息
+pub fn get_current_task_info() -> TaskInfo {
+    let inner = TASK_MANAGER.inner.exclusive_access();
+    let current = inner.current_task;
+    let current_task_info = &inner.tasks[current];
+
+    TaskInfo {
+        status: TaskStatus::Running,
+        syscall_times: current_task_info.syscall_counts,
+        time: get_time_ms()-current_task_info.time_lastcall,
+    }
+
+}
+
+/// 创建
+pub fn create_memory_area(start: usize, len: usize, port: usize) -> isize{
+    let mut inner = TASK_MANAGER.inner.exclusive_access();
+    let current = inner.current_task;
+    let memoryset = &mut inner.tasks[current].memory_set;
+
+    let va_start = VirtAddr::from(start);
+    let va_end = VirtAddr::from(start+len);
+
+    for index in (start..start+len).step_by(PAGE_SIZE) {
+        let index: VirtAddr = index.into();
+        let pte = memoryset.translate(index.floor());
+        if pte.is_some() && pte.unwrap().is_valid() {
+            return -1;
+        };
+    }
+
+    memoryset.insert_framed_area(va_start, va_end, (MapPermission::from_bits((port << 1 | 16) as u8)).unwrap());
+    0
+}
+
+
+/// 删除
+pub fn delete_memory_area(start: usize, len: usize) -> isize {
+    let mut inner = TASK_MANAGER.inner.exclusive_access();
+    let current = inner.current_task;
+    let memoryset = &mut inner.tasks[current].memory_set;
+
+    let start_va = VirtAddr::from(start);
+    let end_va = VirtAddr::from(start+len);
+
+    memoryset.delete_framed_area(start_va, end_va);
+    0
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// /// 获取当前任务
+// pub fn get_current_task<'a, T>(_lifetime: &'a T) -> &'a TaskControlBlock{
+//     let inner:RefMut<'a, TaskManagerInner> = TASK_MANAGER.inner.exclusive_access();
+//     let current: usize = inner.current_task;
+//     &inner.tasks[current]
+// }
+
+
+
+// ///
+// pub fn get_current_tasks <'a, T> (_lifetime: &'a T) -> RefMut<'a, TaskManagerInner>{
+//     TASK_MANAGER.inner.exclusive_access()
+// }
+
+// /// 创建
+// pub fn create_framed_area(start: usize, len: usize, port: usize){
+//     let inner = TASK_MANAGER.inner.exclusive_access();
+//     let current = inner.current_task;
+
+//     // inner.tasks[current].memory_set.insert_framed_area(start.into(), (start+len).into(), MapPermission::from_bits((port << 1 | 16) as u8).unwrap());
+
+//     let current_task = &inner.tasks[current];
+//     let memoryset = &current_task.memory_set;
+//     memoryset.
+
+    
+
+//}
+
+// /// 销毁
+// pub fn delete_framed_area(_start: usize, _len: usize) {
+
+// }
+
+// pub fn get_current_task<'a, T>(_: &'a T) -> &'a TaskControlBlock{
+//     let mut inner = TASK_MANAGER.inner.exclusive_access();
+//     let current = inner.current_task;
+//     &mut inner.tasks[current]
+// }
+
