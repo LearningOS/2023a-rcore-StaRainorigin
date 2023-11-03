@@ -34,6 +34,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run tests
         run: |
+          export RUSTUP DIST SERVER=https://mirrors.tuna.edu.cn/rustup
+          export RUSTUP UPDATE ROOT=https://mirrors.tuna.educn/rustup/rustu
+          export RUSTUP DIST SERVER=https://static.rust-lang.org
+          export RUSTUP UPDATE ROOT=https://static.rust-lang.org/rustup
+          echo "[source.crates-io]\nreplace-with = 'mirror'\n\n[source.mirror]\nregistry = \"sparse+https://mirrors.tuna.tsinghua.edu.cn/crates.io-index/\"” > ${CARGO_HOME:-$HOME/cargo}/config
+          cat ${CARGO_HOME:-$HOME/.cargo}/config
           qemu-system-riscv64 --version
           rustup target add riscv64gc-unknown-none-elf
           git config --global --add safe.directory /__w/${{ github.event.repository.name }}/${{ github.event.repository.name }}
