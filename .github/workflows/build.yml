@@ -34,8 +34,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run tests
         run: |
-          export RUSTUP DIST SERVER=https://mirrors.tuna.edu.cn/rustup
-          export RUSTUP UPDATE ROOT=https://mirrors.tuna.educn/rustup/rustup
+          export RUSTUP DIST SERVER=https://mirrors.tuna.tsinghua.edu.cn/rustup/
+          export RUSTUP UPDATE ROOT=https://mirrors.tuna.tsinghua.edu.cn/rustup/rustup
           export RUSTUP DIST SERVER=https://static.rust-lang.org
           export RUSTUP UPDATE ROOT=https://static.rust-lang.org/rustup
           echo "[source.crates-io]\nreplace-with = 'mirror'\n\n[source.mirror]\nregistry = \"sparse+https://mirrors.tuna.tsinghua.edu.cn/crates.io-index/\"” > ${CARGO_HOME:-$HOME/cargo}/config
