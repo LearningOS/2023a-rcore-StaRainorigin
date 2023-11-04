@@ -90,19 +90,6 @@ impl TaskControlBlock {
         task_control_block
     }
 
-/// 
-///这段代码是一个 Rust 结构 TaskControlBlock 的定义，其中包括了一些成员字段和 TaskControlBlock 结构的实现，我将着重分析 new 方法。
-// new 方法的作用是创建一个新的 TaskControlBlock 实例，用于表示一个任务（或进程）的控制块。这个控制块包含了与任务执行相关的各种信息，包括任务的内存空间、上下文信息、堆栈、系统调用计数等。
-// 以下是 new 方法的主要步骤和作用：
-// MemorySet::from_elf(elf_data)：这一行创建了一个 MemorySet 对象，它是用来管理任务的内存空间的。from_elf 方法根据 ELF 文件的数据（elf_data）构建了任务的内存布局，包括程序头、trampoline、陷阱上下文和用户堆栈等。
-// trap_cx_ppn：这一行通过在内存空间中查找陷阱上下文（TrapContext）的物理页号（ppn）来获得陷阱上下文的位置。陷阱上下文用于保存任务在内核态执行时的上下文信息。
-// TaskStatus::Ready：创建一个 TaskStatus 枚举实例，表示任务的状态为 "Ready"，即任务准备好执行。
-// kernel_stack_position(app_id)：计算内核堆栈的起始地址和结束地址，然后将这个区域映射到内核空间。
-// 创建 TaskContext：创建一个任务上下文（TaskContext）实例，该上下文用于任务在内核态执行时的初始状态。
-// 构建 TaskControlBlock：使用上述信息创建一个 TaskControlBlock 实例，包括任务状态、任务上下文、内存布局、陷阱上下文位置、程序的大小（base_size）、堆底（heap_bottom）、程序断点（program_brk）、系统调用计数、以及任务的启动时间。
-// 准备 TrapContext：通过 task_control_block.get_trap_cx() 获取任务的陷阱上下文，并初始化它以便任务从用户态切换到内核态时能够正确处理陷阱和系统调用。
-// 最终，new 方法返回一个包含了任务控制信息的 TaskControlBlock 实例，该实例准备好用于执行一个程序，其中包括了程序的内存布局、初始状态和执行环境。这在操作系统中用于创建和管理进程或任务。
-
 
     /// change the location of the program break. return None if failed.
     pub fn change_program_brk(&mut self, size: i32) -> Option<usize> {
