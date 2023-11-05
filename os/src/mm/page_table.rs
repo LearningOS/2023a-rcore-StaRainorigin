@@ -206,8 +206,8 @@ pub fn translated_byte_buffer(token: usize, ptr: *const u8, len: usize) -> Vec<&
 /// 好像也没有什么需要传进来的……
 /// 找到page_table 调用其 translated 时发现需要一个VirtAddr参数
 pub fn translated_va_to_pa(token: usize, virt_addr: VirtAddr) -> Option<PhysAddr> {
-    let page_tabel = PageTable::from_token(token);
-    if let Some(pte) = page_tabel.translate(virt_addr.clone().floor()) {
+    let page_table = PageTable::from_token(token);
+    if let Some(pte) = page_table.translate(virt_addr.clone().floor()) {
         let phys_addr_temp: PhysAddr = pte.ppn().into();
         let offset = virt_addr.clone().page_offset();
         Some((phys_addr_temp.0 + offset).into())
