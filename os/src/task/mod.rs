@@ -21,12 +21,12 @@ mod switch;
 #[allow(clippy::module_inception)]
 mod task;
 
-use crate::loader::get_app_data_by_name;
+use crate::{loader::get_app_data_by_name, mm::{VirtAddr, MapPermission}, config::PAGE_SIZE, timer::get_time_ms, };
 use alloc::sync::Arc;
 use lazy_static::*;
 pub use manager::{fetch_task, TaskManager};
 use switch::__switch;
-pub use task::{TaskControlBlock, TaskStatus};
+pub use task::{TaskControlBlock, TaskStatus, TaskInfo};
 
 pub use context::TaskContext;
 pub use id::{kstack_alloc, pid_alloc, KernelStack, PidHandle};
@@ -114,4 +114,45 @@ lazy_static! {
 ///Add init process to the manager
 pub fn add_initproc() {
     add_task(INITPROC.clone());
+}
+
+///add syscall_count when syscall is called
+pub fn add_syscall_count(syscall_id: usize) {
+    let current_task = current_task().unwrap();
+    let last_time = current_task.inner_exclusive_access().time_interval;
+    current_task.inner_exclusive_access().syscall_counts[syscall_id] += 1;
+    current_task.inner_exclusive_access().time_interval = get_time_ms() - last_time;
+}
+
+
+/// create
+pub fn create_memory_area(start: usize, len: usize, port: usize) -> isize{
+    let binding = current_task().unwrap();  //需要一个更长的生命周期
+    let ref mut memoryset = binding.inner_exclusive_access().memory_set;
+
+    let va_start = VirtAddr::from(start);
+    let va_end = VirtAddr::from(start+len);
+
+    for index in (start..start+len).step_by(PAGE_SIZE) {
+        let index: VirtAddr = index.into();
+        let pte = memoryset.translate(index.floor());
+        if pte.is_some() && pte.unwrap().is_valid() {
+            return -1;
+        };
+    }
+
+    memoryset.insert_framed_area(va_start, va_end, (MapPermission::from_bits((port << 1 | 16) as u8)).unwrap());
+    0
+}
+
+
+/// remove
+pub fn remove_memory_area(start: usize) -> isize {
+    let binding = current_task().unwrap(); 
+    let ref mut memoryset = binding.inner_exclusive_access().memory_set;
+
+    let va_start = VirtAddr::from(start);
+    
+    memoryset.remove_area_with_start_vpn(va_start.floor());
+    0
 }
